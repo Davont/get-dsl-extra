@@ -3,7 +3,8 @@
   "name": "Get DSL Extra",
   "version": "1.0.0",
   "description": "通过口令获取并下载 DSL 文件",
-  "permissions": ["downloads", "activeTab"],
+  "permissions": ["scripting"],
+  "host_permissions": ["*://*.example.com/*"],
   "action": {
     "default_popup": "popup/index.html",
     "default_icon": {

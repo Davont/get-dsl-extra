@@ -65,3 +65,6 @@ submitBtn.addEventListener('click', handleSubmit)
 codeInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') handleSubmit()
 })
+
+// 聚焦输入框时清除上次的状态提示
+codeInput.addEventListener('focus', clearStatus)

@@ -101,7 +101,6 @@ async function handleFetchDsl(code: string): Promise<unknown> {
   log('创建隐藏窗口...')
   const win = await chrome.windows.create({
     url: TARGET_URL,
-    state: 'minimized',
     focused: false,
   })
 

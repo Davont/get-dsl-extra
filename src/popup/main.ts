@@ -40,15 +40,19 @@ async function handleSubmit() {
     return
   }
 
+  console.log('[popup] 提交口令:', code)
   submitBtn.disabled = true
   setStatus('正在获取 DSL...', 'loading')
 
   try {
+    console.log('[popup] 调用 fetchDsl...')
     const dsl = await fetchDsl(code)
+    console.log('[popup] 获取成功, 长度:', dsl.length)
     downloadFile(dsl, `dsl-${Date.now()}.json`)
     setStatus('下载成功', 'success')
   } catch (err) {
     const msg = err instanceof Error ? err.message : '未知错误'
+    console.error('[popup] 获取失败:', msg)
     setStatus(`获取失败: ${msg}`, 'error')
   } finally {
     submitBtn.disabled = false

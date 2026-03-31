@@ -3,10 +3,11 @@
  * 接收 popup 消息，在隐藏窗口中打开目标页面并获取 DSL
  */
 
-// TODO: 替换为实际的目标页面地址
 const TARGET_URL = 'https://octo.hdesign.huawei.com/developerPreview/mcp/index.html'
 
 const TAB_LOAD_TIMEOUT = 30_000
+const API_READY_INTERVAL = 500
+const API_READY_MAX_RETRIES = 20
 const DSL_POLL_INTERVAL = 1_000
 const DSL_POLL_MAX_RETRIES = 15
 
@@ -67,6 +68,41 @@ function waitForTabLoad(tabId: number): Promise<void> {
   })
 }
 
+/** 等待页面上 __PUPPETEER__EVENT__ 对象就绪 */
+async function waitForApiReady(tabId: number): Promise<void> {
+  for (let i = 0; i < API_READY_MAX_RETRIES; i++) {
+    log(`检查 __PUPPETEER__EVENT__ 是否就绪 (${i + 1}/${API_READY_MAX_RETRIES})...`)
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: () => {
+          const evt = (window as any).__PUPPETEER__EVENT__
+          return {
+            exists: !!evt,
+            hasChangeCode: typeof evt?.changeCode === 'function',
+            hasGetEventMessage: typeof evt?.getEventMessage === 'function',
+          }
+        },
+      })
+
+      const info = results?.[0]?.result
+      log('API 状态:', info)
+
+      if (info?.exists && info?.hasChangeCode && info?.hasGetEventMessage) {
+        log('__PUPPETEER__EVENT__ 已就绪')
+        return
+      }
+    } catch (err) {
+      logError(`检查 API 出错:`, (err as Error).message)
+    }
+
+    await new Promise((r) => setTimeout(r, API_READY_INTERVAL))
+  }
+
+  throw new Error('页面 API (__PUPPETEER__EVENT__) 未就绪，请确认目标网站是否正常')
+}
+
 /** 轮询获取 DSL，拿到数据立即返回 */
 async function pollForDsl(tabId: number): Promise<unknown> {
   for (let i = 0; i < DSL_POLL_MAX_RETRIES; i++) {
@@ -93,12 +129,12 @@ async function pollForDsl(tabId: number): Promise<unknown> {
   throw new Error('获取 DSL 超时，请稍后重试')
 }
 
-/** 创建隐藏窗口 → 加载目标页面 → 获取 DSL → 关闭窗口 */
+/** 创建窗口 → 加载目标页面 → 等待 API 就绪 → 获取 DSL → 关闭窗口 */
 async function handleFetchDsl(code: string): Promise<unknown> {
   log('开始获取 DSL, 口令:', code)
   log('目标地址:', TARGET_URL)
 
-  log('创建隐藏窗口...')
+  log('创建窗口...')
   const win = await chrome.windows.create({
     url: TARGET_URL,
     focused: false,
@@ -113,6 +149,9 @@ async function handleFetchDsl(code: string): Promise<unknown> {
   try {
     log('等待页面加载...')
     await waitForTabLoad(tabId)
+
+    log('等待 __PUPPETEER__EVENT__ 就绪...')
+    await waitForApiReady(tabId)
 
     log('执行 changeCode...')
     await chrome.scripting.executeScript({
@@ -134,7 +173,7 @@ async function handleFetchDsl(code: string): Promise<unknown> {
     logError('handleFetchDsl 出错:', (err as Error).message)
     throw err
   } finally {
-    log('关闭隐藏窗口:', winId)
+    log('关闭窗口:', winId)
     chrome.windows.remove(winId)
   }
 }

@@ -50,7 +50,7 @@ async function fetchDslFromExtension(code: string): Promise<string> {
   }
 
   const data = response.data
-  return typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+  return typeof data === 'string' ? data : JSON.stringify(data)
 }
 
 /** 开发调试模式：返回 mock 数据 */
